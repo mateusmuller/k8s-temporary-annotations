@@ -7,6 +7,10 @@ import yaml
 
 app = Flask(__name__)
 
+def load_config ():
+    with open("config.yaml") as f:
+        return yaml.load(f, Loader=yaml.FullLoader)
+
 @app.route("/mutate", methods=["POST"])
 def mutate():
     """
@@ -44,10 +48,6 @@ def base64_patch(patch):
     ref: https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#response
     """
     return base64.b64encode(patch.to_string().encode("utf-8")).decode("utf-8")
-
-def load_config ():
-    with open("config.yaml") as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
 
 def inject_annotations(object):
     """inject annotations inside object key"""
