@@ -1,0 +1,34 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: tmp-annotations-webhook
+  labels:
+    app: tmp-annotations
+    resource: mutatingwebhookconfiguration
+  annotations:
+    cert-manager.io/inject-ca-from: default/tmp-annotations
+webhooks:
+  - name: tmp-annotations.webhook.io
+    clientConfig:
+      service:
+        name: tmp-annotations
+        namespace: default
+        path: "/mutate"
+        port: 5000
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - "*"
+        apiVersions:
+          - "*"
+        resources:
+          - "pods"
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    failurePolicy: Ignore
+    reinvocationPolicy: IfNeeded
+    namespaceSelector:
+      matchLabels:
+        tmp-annotations.io/tmp-annotations: "enabled"

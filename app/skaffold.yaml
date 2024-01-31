@@ -1,0 +1,14 @@
+apiVersion: skaffold/v3
+kind: Config
+metadata:
+  name: tmp-annotations
+build:
+  artifacts:
+  - image: harbor.mateusmuller.me/mateusmullerme/tmp-annotations
+    docker:
+      dockerfile: Dockerfile
+manifests:
+  rawYaml:
+    - ../manifests/deployment.yaml
+    - ../manifests/service.yaml
+    - ../manifests/mutatingwebhook.yaml
