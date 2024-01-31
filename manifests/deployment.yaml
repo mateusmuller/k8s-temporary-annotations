@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: tmp-annotations
+  name: tmp-annotations
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tmp-annotations
+  template:
+    metadata:
+      labels:
+        app: tmp-annotations
+    spec:
+      containers:
+      - image: harbor.mateusmuller.me/mateusmullerme/tmp-annotations:latest
+        name: tmp-annotations
