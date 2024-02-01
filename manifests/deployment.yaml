@@ -14,6 +14,7 @@ spec:
       labels:
         app: tmp-annotations
     spec:
+      serviceAccountName: tmp-annotations
       containers:
-      - image: harbor.mateusmuller.me/mateusmullerme/tmp-annotations:latest
+      - image: harbor.mateusmuller.me/mateusmullerme/tmp-annotations:7685654-dirty
         name: tmp-annotations

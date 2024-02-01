@@ -1,6 +1,8 @@
 FROM python:3.10-alpine
 
 RUN apk update && \
+  apk add tzdata && \
+  ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
   mkdir -p /opt/tmp_annotations && \
   adduser -D tmp_annotations && \
   chown tmp_annotations:tmp_annotations /opt/tmp_annotations

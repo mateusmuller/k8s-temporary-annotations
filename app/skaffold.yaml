@@ -9,6 +9,7 @@ build:
       dockerfile: Dockerfile
 manifests:
   rawYaml:
+    - ../manifests/rbac.yaml
     - ../manifests/deployment.yaml
     - ../manifests/service.yaml
     - ../manifests/mutatingwebhook.yaml

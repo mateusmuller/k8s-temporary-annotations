@@ -1,3 +1,4 @@
 annotations:
   - karpenter.sh/do-not-disrupt: "true"
-  - spinnaker-managed: "vraus"
+
+wait: 15
