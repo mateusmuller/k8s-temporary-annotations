@@ -18,7 +18,6 @@ webhooks:
     rules:
       - operations:
           - CREATE
-          - UPDATE
         apiGroups:
           - "*"
         apiVersions:

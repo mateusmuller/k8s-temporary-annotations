@@ -1,4 +1,4 @@
 annotations:
-  - karpenter.sh/do-not-disrupt: "true"
+  karpenter.sh/do-not-disrupt: "true"
 
 wait: 15

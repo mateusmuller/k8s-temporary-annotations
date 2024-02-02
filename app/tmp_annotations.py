@@ -14,6 +14,7 @@ scheduler.start()
 
 
 def load_config():
+    """load yaml config file in memory"""
     with open("config.yaml") as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
@@ -32,7 +33,9 @@ def mutate():
     object = request_payload["request"]["object"]
     modified_object = inject_metadata(modified_payload["request"]["object"])
 
-    operation = jsonpatch_operation(object, modified_object)
+    operation = generate_jsongenerate_remove_jsonpatch_operation(
+        object, modified_object
+    )
     app.logger.debug(f"base64 operation generated: {operation}")
 
     admission_review = {
@@ -49,7 +52,7 @@ def mutate():
     return jsonify(admission_review)
 
 
-def base64_patch(patch):
+def generate_base64_patch(patch):
     """
     convert JSONPatch operation to base64
     ref: https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#response
@@ -66,10 +69,9 @@ def inject_metadata(object):
         object["metadata"]["annotations"] = {}
 
     for annotation in internal_config["annotations"]:
-        key = list(annotation.keys())[0]
-        value = list(annotation.values())[0]
-        if key not in object["metadata"]["annotations"].keys():
-            object["metadata"]["annotations"][key] = value
+        value = internal_config["annotations"][annotation]
+        if annotation not in object["metadata"]["annotations"].keys():
+            object["metadata"]["annotations"][annotation] = value
 
     if "labels" not in object["metadata"].keys():
         object["metadata"]["labels"] = {}
@@ -79,21 +81,41 @@ def inject_metadata(object):
     return object
 
 
-def jsonpatch_operation(object, modified_object):
+def generate_jsongenerate_remove_jsonpatch_operation(object, modified_object):
     """
     generate JSONPatch operation from objects diff
     ref: https://python-json-patch.readthedocs.io/en/latest/tutorial.html#creating-a-patch
     """
     operation = jsonpatch.JsonPatch.from_diff(object, modified_object)
     app.logger.debug(f"JSONPatch operation generated: {operation}")
-    return base64_patch(operation)
+    return generate_base64_patch(operation)
 
 
-@scheduler.task("interval", id="delete_annotations", seconds=60, misfire_grace_time=900)
-def delete_annotations():
+def generate_remove_jsonpatch_operation():
+    internal_config = load_config()
+    annotations = []
+
+    for key, value in internal_config["annotations"].items():
+        annotations.append(
+            {
+                "op": "remove",
+                "path": f"/metadata/annotations/{key.replace('/','~1')}",
+                "value": f"{value}",
+            }
+        )
+
+    label = [
+        {"op": "remove", "path": "/metadata/labels/tmp-annotations", "value": "enabled"}
+    ]
+
+    return annotations + label
+
+
+@scheduler.task("interval", id="remove_metadata", seconds=60)
+def remove_metadata():
     """
     remove annotations from all pods based on namespace selector which
-    exist longer than "wait" threshold defined on config.yaml
+    exist longer than "wait" thresh old defined on config.yaml
     """
     config.load_incluster_config()
     internal_config = load_config()
@@ -108,20 +130,29 @@ def delete_annotations():
 
     for namespace in namespaces:
         pods = v1.list_namespaced_pod(
-            namespace=namespace.metadata.name, label_selector="tmp-annotations=enabled"
+            namespace=namespace.metadata.name,
+            label_selector="tmp-annotations=enabled,app!=tmp-annotations",
         ).items
         for pod in pods:
             diff = (now - pod.status.start_time).total_seconds()
             if diff > wait:
-                app.logger.debug(f"pod: {pod.metadata.name} | eligible")
+                app.logger.debug(f"pod: {pod.metadata.name} | eligible | patching...")
+                v1.patch_namespaced_pod(
+                    name=pod.metadata.name,
+                    namespace=namespace.metadata.name,
+                    body=generate_remove_jsonpatch_operation(),
+                )
             else:
-                app.logger.debug(f"pod: {pod.metadata.name} | not eligible | diff: {diff}s")
+                app.logger.debug(
+                    f"pod: {pod.metadata.name} | not eligible | diff: {diff}s"
+                )
 
 
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port="5000",
-        debug="True",
+        debug=True,
+        use_reloader=False,
         ssl_context=("server.crt", "server.key"),
     )
