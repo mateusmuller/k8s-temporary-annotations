@@ -33,7 +33,7 @@ def mutate():
     object = request_payload["request"]["object"]
     modified_object = inject_metadata(modified_payload["request"]["object"])
 
-    operation = generate_jsongenerate_remove_jsonpatch_operation(
+    operation = generate_jsonpatch_operation(
         object, modified_object
     )
     app.logger.debug(f"base64 operation generated: {operation}")
@@ -81,7 +81,7 @@ def inject_metadata(object):
     return object
 
 
-def generate_jsongenerate_remove_jsonpatch_operation(object, modified_object):
+def generate_jsonpatch_operation(object, modified_object):
     """
     generate JSONPatch operation from objects diff
     ref: https://python-json-patch.readthedocs.io/en/latest/tutorial.html#creating-a-patch
