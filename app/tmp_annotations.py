@@ -33,9 +33,7 @@ def mutate():
     object = request_payload["request"]["object"]
     modified_object = inject_metadata(modified_payload["request"]["object"])
 
-    operation = generate_jsonpatch_operation(
-        object, modified_object
-    )
+    operation = generate_jsonpatch_operation(object, modified_object)
     app.logger.debug(f"base64 operation generated: {operation}")
 
     admission_review = {
@@ -121,9 +119,7 @@ def remove_metadata():
     internal_config = load_config()
 
     v1 = client.CoreV1Api()
-    namespaces = v1.list_namespace(
-        label_selector="tmp-annotations.io/tmp-annotations=enabled"
-    ).items
+    namespaces = v1.list_namespace(label_selector="tmp-annotations=enabled").items
 
     now = datetime.datetime.now(datetime.timezone.utc)
     wait = datetime.timedelta(minutes=internal_config["wait"]).total_seconds()

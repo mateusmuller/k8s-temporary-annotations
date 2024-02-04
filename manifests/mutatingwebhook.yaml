@@ -30,4 +30,4 @@ webhooks:
     reinvocationPolicy: IfNeeded
     namespaceSelector:
       matchLabels:
-        tmp-annotations.io/tmp-annotations: "enabled"
+        tmp-annotations: "enabled"
