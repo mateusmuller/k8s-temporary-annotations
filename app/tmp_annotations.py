@@ -105,16 +105,14 @@ def generate_jsonpatch_operation(object, modified_object):
 
 def generate_remove_jsonpatch_operation():
     internal_config = load_config()
-    annotations = []
 
-    for key, value in internal_config["annotations"].items():
-        annotations.append(
-            {
-                "op": "remove",
-                "path": f"/metadata/annotations/{key.replace('/','~1')}",
-                "value": f"{value}",
-            }
-        )
+    annotations = [
+        {
+            "op": "remove",
+            "path": f"/metadata/annotations/{annotation.replace('/', '~1')}",
+            "value": f"{value}"
+        } for annotation, value in internal_config["annotations"].items()
+    ]
 
     label = [
         {"op": "remove", "path": "/metadata/labels/tmp-annotations", "value": "enabled"}
