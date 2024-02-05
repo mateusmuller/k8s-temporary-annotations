@@ -24,6 +24,7 @@ def itself(object):
         return True
     return False
 
+
 @app.route("/mutate", methods=["POST"])
 def mutate():
     """
@@ -38,10 +39,7 @@ def mutate():
         admission_review = {
             "apiVersion": "admission.k8s.io/v1",
             "kind": "AdmissionReview",
-            "response": {
-                "uid": request_uid,
-                "allowed": True
-            },
+            "response": {"uid": request_uid, "allowed": True},
         }
 
         return jsonify(admission_review)
