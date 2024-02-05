@@ -3,16 +3,16 @@ FROM python:3.10-alpine
 RUN apk update && \
   apk add tzdata && \
   ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime && \
-  mkdir -p /opt/tmp_annotations && \
-  adduser -D tmp_annotations && \
-  chown tmp_annotations:tmp_annotations /opt/tmp_annotations
+  mkdir -p /opt/tmpant && \
+  adduser -D tmpant && \
+  chown tmpant:tmpant /opt/tmpant
 
-WORKDIR /opt/tmp_annotations
-USER tmp_annotations
+WORKDIR /opt/tmpant
+USER tmpant
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY --chown=tmp_annotations:tmp_annotations . .
+COPY --chown=tmpant:tmpant . .
 
 CMD ["python", "tmp_annotations.py"]
