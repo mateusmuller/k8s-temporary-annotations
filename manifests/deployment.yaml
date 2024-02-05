@@ -18,3 +18,11 @@ spec:
       containers:
       - image: harbor.mateusmuller.me/mateusmullerme/tmp-annotations:7685654-dirty
         name: tmp-annotations
+        volumeMounts:
+          - name: config
+            mountPath: /opt/tmpant/config.yaml
+            subPath: config.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: tmp-annotations-config

@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  config.yaml: |-
+    annotations:
+      karpenter.sh/do-not-disrupt: "true"
+
+    wait: 2
+kind: ConfigMap
+metadata:
+  name: tmp-annotations-config
