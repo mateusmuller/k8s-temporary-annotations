@@ -19,6 +19,11 @@ def load_config():
         return yaml.load(f, Loader=yaml.FullLoader)
 
 
+def itself(object):
+    if object["metadata"]["labels"]["app"] == "tmp-annotations":
+        return True
+    return False
+
 @app.route("/mutate", methods=["POST"])
 def mutate():
     """
@@ -27,27 +32,38 @@ def mutate():
     """
     request_payload = request.json
     modified_payload = copy.deepcopy(request_payload)
-
     request_uid = request_payload["request"]["uid"]
 
-    object = request_payload["request"]["object"]
-    modified_object = inject_metadata(modified_payload["request"]["object"])
+    if itself(request_payload["request"]["object"]):
+        admission_review = {
+            "apiVersion": "admission.k8s.io/v1",
+            "kind": "AdmissionReview",
+            "response": {
+                "uid": request_uid,
+                "allowed": True
+            },
+        }
 
-    operation = generate_jsonpatch_operation(object, modified_object)
-    app.logger.debug(f"base64 operation generated: {operation}")
+        return jsonify(admission_review)
+    else:
+        object = request_payload["request"]["object"]
+        modified_object = inject_metadata(modified_payload["request"]["object"])
 
-    admission_review = {
-        "apiVersion": "admission.k8s.io/v1",
-        "kind": "AdmissionReview",
-        "response": {
-            "uid": request_uid,
-            "allowed": True,
-            "patchType": "JSONPatch",
-            "patch": operation,
-        },
-    }
+        operation = generate_jsonpatch_operation(object, modified_object)
+        app.logger.debug(f"base64 operation generated: {operation}")
 
-    return jsonify(admission_review)
+        admission_review = {
+            "apiVersion": "admission.k8s.io/v1",
+            "kind": "AdmissionReview",
+            "response": {
+                "uid": request_uid,
+                "allowed": True,
+                "patchType": "JSONPatch",
+                "patch": operation,
+            },
+        }
+
+        return jsonify(admission_review)
 
 
 def generate_base64_patch(patch):
