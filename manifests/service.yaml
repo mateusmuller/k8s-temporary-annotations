@@ -6,6 +6,6 @@ metadata:
   name: tmp-annotations
 spec:
   ports:
-  - port: 5000
+  - port: 8443
   selector:
     app: tmp-annotations

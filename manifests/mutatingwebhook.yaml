@@ -14,7 +14,7 @@ webhooks:
         name: tmp-annotations
         namespace: default
         path: "/mutate"
-        port: 5000
+        port: 8443
     rules:
       - operations:
           - CREATE

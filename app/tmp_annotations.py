@@ -6,11 +6,18 @@ import jsonpatch
 import base64
 import copy
 import yaml
+import logging
 
 app = Flask(__name__)
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
+
+if __name__ != "__main__":
+    # if not running directly,set log handler to gunicorn
+    gunicorn_logger = logging.getLogger("gunicorn.error")
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
 
 
 def load_config():
@@ -110,8 +117,9 @@ def generate_remove_jsonpatch_operation():
         {
             "op": "remove",
             "path": f"/metadata/annotations/{annotation.replace('/', '~1')}",
-            "value": f"{value}"
-        } for annotation, value in internal_config["annotations"].items()
+            "value": f"{value}",
+        }
+        for annotation, value in internal_config["annotations"].items()
     ]
 
     label = [
@@ -157,10 +165,4 @@ def remove_metadata():
 
 
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port="5000",
-        debug=True,
-        use_reloader=False,
-        ssl_context=("server.crt", "server.key"),
-    )
+    app.run(host="0.0.0.0", port="5000", debug=True, use_reloader=False)
