@@ -5,7 +5,7 @@ metadata:
     app: tmp-annotations
   name: tmp-annotations
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: tmp-annotations
@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         app: tmp-annotations
+      annotations:
+        kubectl.kubernetes.io/default-container: tmp-annotations
     spec:
       serviceAccountName: tmp-annotations
       containers:
@@ -22,6 +24,11 @@ spec:
           - name: config
             mountPath: /opt/tmpant/config.yaml
             subPath: config.yaml
+      - image: harbor.mateusmuller.me/mateusmullerme/tmp-annotations:7685654-dirty
+        name: leader-elector
+        command:
+          - python
+          - leaderelection.py
       volumes:
         - name: config
           configMap:

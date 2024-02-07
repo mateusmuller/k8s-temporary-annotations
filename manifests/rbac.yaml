@@ -17,6 +17,14 @@ rules:
   - list
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - update
+  - get
 ---
 apiVersion: v1
 imagePullSecrets:

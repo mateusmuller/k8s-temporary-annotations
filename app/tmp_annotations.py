@@ -6,7 +6,9 @@ import jsonpatch
 import base64
 import copy
 import yaml
+import socket
 import logging
+import json
 
 app = Flask(__name__)
 scheduler = APScheduler()
@@ -129,39 +131,64 @@ def generate_remove_jsonpatch_operation():
     return annotations + label
 
 
+def get_hostname():
+    return socket.gethostname()
+
+
+def get_leader():
+    config.load_incluster_config()
+    v1 = client.CoreV1Api()
+    configmap = v1.read_namespaced_config_map("tmp-annotations-lock", "default")
+    leader_pod = json.loads(
+        configmap.metadata.annotations["control-plane.alpha.kubernetes.io/leader"]
+    )["holderIdentity"]
+    return leader_pod
+
+
+def is_leader():
+    if get_hostname() == get_leader():
+        return True
+    return False
+
+
 @scheduler.task("interval", id="remove_metadata", seconds=60)
 def remove_metadata():
     """
     remove annotations from all pods based on namespace selector which
     exist longer than "wait" thresh old defined on config.yaml
     """
-    config.load_incluster_config()
-    internal_config = load_config()
+    if is_leader():
+        config.load_incluster_config()
+        internal_config = load_config()
 
-    v1 = client.CoreV1Api()
-    namespaces = v1.list_namespace(label_selector="tmp-annotations=enabled").items
+        v1 = client.CoreV1Api()
+        namespaces = v1.list_namespace(label_selector="tmp-annotations=enabled").items
 
-    now = datetime.datetime.now(datetime.timezone.utc)
-    wait = datetime.timedelta(minutes=internal_config["wait"]).total_seconds()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        wait = datetime.timedelta(minutes=internal_config["wait"]).total_seconds()
 
-    for namespace in namespaces:
-        pods = v1.list_namespaced_pod(
-            namespace=namespace.metadata.name,
-            label_selector="tmp-annotations=enabled,app!=tmp-annotations",
-        ).items
-        for pod in pods:
-            diff = (now - pod.status.start_time).total_seconds()
-            if diff > wait:
-                app.logger.debug(f"pod: {pod.metadata.name} | eligible | patching...")
-                v1.patch_namespaced_pod(
-                    name=pod.metadata.name,
-                    namespace=namespace.metadata.name,
-                    body=generate_remove_jsonpatch_operation(),
-                )
-            else:
-                app.logger.debug(
-                    f"pod: {pod.metadata.name} | not eligible | diff: {diff}s"
-                )
+        for namespace in namespaces:
+            pods = v1.list_namespaced_pod(
+                namespace=namespace.metadata.name,
+                label_selector="tmp-annotations=enabled,app!=tmp-annotations",
+            ).items
+            for pod in pods:
+                diff = (now - pod.status.start_time).total_seconds()
+                if diff > wait:
+                    app.logger.debug(
+                        f"pod: {pod.metadata.name} | eligible | patching..."
+                    )
+                    v1.patch_namespaced_pod(
+                        name=pod.metadata.name,
+                        namespace=namespace.metadata.name,
+                        body=generate_remove_jsonpatch_operation(),
+                    )
+                else:
+                    app.logger.debug(
+                        f"pod: {pod.metadata.name} | not eligible | diff: {diff}s"
+                    )
+    else:
+        app.logger.debug(f"Skipping... {get_hostname()} it not the leader")
 
 
 if __name__ == "__main__":
