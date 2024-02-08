@@ -10,10 +10,10 @@ RUN apk update && \
 WORKDIR /opt/tmpant
 USER tmpant
 
-COPY --chown=tmpant:tmpant requirements.txt .
+COPY --chown=tmpant:tmpant app/requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY --chown=tmpant:tmpant . .
+COPY --chown=tmpant:tmpant app .
 ENV PATH $PATH:/home/tmpant/.local/bin
 
 CMD [ "gunicorn", "tmp_annotations:app" ]
