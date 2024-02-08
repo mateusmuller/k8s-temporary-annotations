@@ -7,11 +7,11 @@ from kubernetes.leaderelection import electionconfig
 config.load_incluster_config()
 candidate_id = socket.gethostname()
 lock_name = "tmp-annotations-lock"
-lock_namespace = "default"
+lock_namespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
 
 
 def leader():
-    print(f"I am leader")
+    print(f"I am the leader")
 
 
 config = electionconfig.Config(

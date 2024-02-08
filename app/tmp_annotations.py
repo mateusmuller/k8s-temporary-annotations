@@ -15,6 +15,12 @@ scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 
+with open("config.yaml") as f:
+    internal_config = yaml.load(f, Loader=yaml.FullLoader)
+
+config.load_incluster_config()
+v1 = client.CoreV1Api()
+
 if __name__ != "__main__":
     # if not running directly,set log handler to gunicorn
     gunicorn_logger = logging.getLogger("gunicorn.error")
@@ -22,16 +28,8 @@ if __name__ != "__main__":
     app.logger.setLevel(gunicorn_logger.level)
 
 
-def load_config():
-    """load yaml config file in memory"""
-    with open("config.yaml") as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
-
-
 def itself(object):
-    if object["metadata"]["labels"]["app"] == "tmp-annotations":
-        return True
-    return False
+    return object["metadata"]["labels"]["app"] == "tmp-annotations"
 
 
 @app.route("/mutate", methods=["POST"])
@@ -83,7 +81,6 @@ def generate_base64_patch(patch):
 
 def inject_metadata(object):
     """inject annotations and label inside object key"""
-    internal_config = load_config()
     app.logger.debug(f"config: {internal_config}")
 
     if "annotations" not in object["metadata"].keys():
@@ -113,8 +110,6 @@ def generate_jsonpatch_operation(object, modified_object):
 
 
 def generate_remove_jsonpatch_operation():
-    internal_config = load_config()
-
     annotations = [
         {
             "op": "remove",
@@ -136,19 +131,46 @@ def get_hostname():
 
 
 def get_leader():
-    config.load_incluster_config()
-    v1 = client.CoreV1Api()
-    configmap = v1.read_namespaced_config_map("tmp-annotations-lock", "default")
+    configmap = "tmp-annotations-lock"
+    namespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
+
+    configmap_output = v1.read_namespaced_config_map(configmap, namespace)
     leader_pod = json.loads(
-        configmap.metadata.annotations["control-plane.alpha.kubernetes.io/leader"]
+        configmap_output.metadata.annotations[
+            "control-plane.alpha.kubernetes.io/leader"
+        ]
     )["holderIdentity"]
     return leader_pod
 
 
 def is_leader():
-    if get_hostname() == get_leader():
-        return True
-    return False
+    return get_hostname() == get_leader()
+
+
+def get_namespaces():
+    return v1.list_namespace(label_selector="tmp-annotations=enabled").items
+
+
+def get_timings():
+    now = datetime.datetime.now(datetime.timezone.utc)
+    wait = datetime.timedelta(minutes=internal_config["wait"]).total_seconds()
+
+    return (now, wait)
+
+
+def get_pods(namespace):
+    return v1.list_namespaced_pod(
+        namespace=namespace.metadata.name,
+        label_selector="tmp-annotations=enabled,app!=tmp-annotations",
+    ).items
+
+
+def patch_pod(name, namespace):
+    v1.patch_namespaced_pod(
+        name=name,
+        namespace=namespace,
+        body=generate_remove_jsonpatch_operation(),
+    )
 
 
 @scheduler.task("interval", id="remove_metadata", seconds=60)
@@ -158,31 +180,18 @@ def remove_metadata():
     exist longer than "wait" thresh old defined on config.yaml
     """
     if is_leader():
-        config.load_incluster_config()
-        internal_config = load_config()
-
-        v1 = client.CoreV1Api()
-        namespaces = v1.list_namespace(label_selector="tmp-annotations=enabled").items
-
-        now = datetime.datetime.now(datetime.timezone.utc)
-        wait = datetime.timedelta(minutes=internal_config["wait"]).total_seconds()
+        namespaces = get_namespaces()
+        now, wait = get_timings()
 
         for namespace in namespaces:
-            pods = v1.list_namespaced_pod(
-                namespace=namespace.metadata.name,
-                label_selector="tmp-annotations=enabled,app!=tmp-annotations",
-            ).items
+            pods = get_pods(namespace)
             for pod in pods:
                 diff = (now - pod.status.start_time).total_seconds()
                 if diff > wait:
                     app.logger.debug(
                         f"pod: {pod.metadata.name} | eligible | patching..."
                     )
-                    v1.patch_namespaced_pod(
-                        name=pod.metadata.name,
-                        namespace=namespace.metadata.name,
-                        body=generate_remove_jsonpatch_operation(),
-                    )
+                    patch_pod(pod.metadata.name, namespace.metadata.name)
                 else:
                     app.logger.debug(
                         f"pod: {pod.metadata.name} | not eligible | diff: {diff}s"
